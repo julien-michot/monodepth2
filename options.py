@@ -24,7 +24,7 @@ class MonodepthOptions:
         self.parser.add_argument("--log_dir",
                                  type=str,
                                  help="log directory",
-                                 default=os.path.join(os.path.expanduser("~"), "tmp"))
+                                 default=os.path.join(file_dir, "../checkpoints"))
 
         # TRAINING options
         self.parser.add_argument("--model_name",
@@ -87,7 +87,7 @@ class MonodepthOptions:
         self.parser.add_argument("--batch_size",
                                  type=int,
                                  help="batch size",
-                                 default=12)
+                                 default=4) # 12, 3 with "shared"/"separate_resnet", 4 with "posecnn"
         self.parser.add_argument("--learning_rate",
                                  type=float,
                                  help="learning rate",
@@ -130,7 +130,7 @@ class MonodepthOptions:
         self.parser.add_argument("--pose_model_type",
                                  type=str,
                                  help="normal or shared",
-                                 default="separate_resnet",
+                                 default="shared", # separate_resnet
                                  choices=["posecnn", "separate_resnet", "shared"])
 
         # SYSTEM options

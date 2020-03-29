@@ -15,6 +15,8 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from tensorboardX import SummaryWriter
 
+from tqdm import tqdm
+
 import json
 
 from utils import *
@@ -30,6 +32,8 @@ class Trainer:
     def __init__(self, options):
         self.opt = options
         self.log_path = os.path.join(self.opt.log_dir, self.opt.model_name)
+
+        self.valid_inputs = None
 
         # checking height and width are multiples of 32
         assert self.opt.height % 32 == 0, "'height' must be a multiple of 32"
@@ -185,24 +189,40 @@ class Trainer:
         self.epoch = 0
         self.step = 0
         self.start_time = time.time()
+        bar = tqdm(total=self.opt.num_epochs + 1, desc="Epochs", position=0, leave=True)
         for self.epoch in range(self.opt.num_epochs):
+            bar.update(self.epoch - bar.n)
             self.run_epoch()
             if (self.epoch + 1) % self.opt.save_frequency == 0:
                 self.save_model()
+                print(torch.cuda.get_device_name(device))
+                print('Memory Usage:',
+                      'Allocated:', round(
+                          torch.cuda.memory_allocated(device)/1024**3, 1), 'GB',
+                      'Cached:', round(torch.cuda.memory_cached(
+                          device)/1024**3, 1), 'GB',
+                      'Total mem:', torch.cuda.get_device_properties(device).total_memory/1024**3, 'GB')
+        bar.close()
 
     def run_epoch(self):
         """Run a single epoch of training and validation
         """
-        self.model_lr_scheduler.step()
 
         print("Training")
         self.set_train()
 
+        n = len(self.train_loader)
+        bar = tqdm(total=n + 1, desc="Training", position=0, leave=True)
+
+        start_time = time.time()
         for batch_idx, inputs in enumerate(self.train_loader):
+            bar.update(batch_idx - bar.n)
 
             before_op_time = time.time()
 
             outputs, losses = self.process_batch(inputs)
+
+            process_batch_time = time.time()
 
             self.model_optimizer.zero_grad()
             losses["loss"].backward()
@@ -214,6 +234,10 @@ class Trainer:
             early_phase = batch_idx % self.opt.log_frequency == 0 and self.step < 2000
             late_phase = self.step % 2000 == 0
 
+            # print('train_loader Time: {:.3f}'.format(before_op_time - start_time))            # 0.001
+            # print('process_batch Time: {:.3f}'.format(process_batch_time - before_op_time))   # 0.258
+            # print('model_optimizer Time: {:.3f}'.format(time.time() - process_batch_time))    # 0.372
+
             if early_phase or late_phase:
                 self.log_time(batch_idx, duration, losses["loss"].cpu().data)
 
@@ -224,12 +248,50 @@ class Trainer:
                 self.val()
 
             self.step += 1
+            start_time = time.time()
+
+        bar.close()
+        self.model_lr_scheduler.step()
 
     def process_batch(self, inputs):
         """Pass a minibatch through the network and generate images and losses
         """
         for key, ipt in inputs.items():
             inputs[key] = ipt.to(self.device)
+            #print(key, inputs[key].shape)
+            # ('K', 0) torch.Size([2, 4, 4])
+            # ('inv_K', 0) torch.Size([2, 4, 4])
+            # ('K', 1) torch.Size([2, 4, 4])
+            # ('inv_K', 1) torch.Size([2, 4, 4])
+            # ('K', 2) torch.Size([2, 4, 4])
+            # ('inv_K', 2) torch.Size([2, 4, 4])
+            # ('K', 3) torch.Size([2, 4, 4])
+            # ('inv_K', 3) torch.Size([2, 4, 4])
+            # ('color', 0, 0) torch.Size([2, 3, 192, 640])
+            # ('color', 0, 1) torch.Size([2, 3, 96, 320])
+            # ('color', 0, 2) torch.Size([2, 3, 48, 160])
+            # ('color', 0, 3) torch.Size([2, 3, 24, 80])
+            # ('color', -1, 0) torch.Size([2, 3, 192, 640])
+            # ('color', -1, 1) torch.Size([2, 3, 96, 320])
+            # ('color', -1, 2) torch.Size([2, 3, 48, 160])
+            # ('color', -1, 3) torch.Size([2, 3, 24, 80])
+            # ('color', 1, 0) torch.Size([2, 3, 192, 640])
+            # ('color', 1, 1) torch.Size([2, 3, 96, 320])
+            # ('color', 1, 2) torch.Size([2, 3, 48, 160])
+            # ('color', 1, 3) torch.Size([2, 3, 24, 80])
+            # ('color_aug', 0, 0) torch.Size([2, 3, 192, 640])
+            # ('color_aug', 0, 1) torch.Size([2, 3, 96, 320])
+            # ('color_aug', 0, 2) torch.Size([2, 3, 48, 160])
+            # ('color_aug', 0, 3) torch.Size([2, 3, 24, 80])
+            # ('color_aug', -1, 0) torch.Size([2, 3, 192, 640])
+            # ('color_aug', -1, 1) torch.Size([2, 3, 96, 320])
+            # ('color_aug', -1, 2) torch.Size([2, 3, 48, 160])
+            # ('color_aug', -1, 3) torch.Size([2, 3, 24, 80])
+            # ('color_aug', 1, 0) torch.Size([2, 3, 192, 640])
+            # ('color_aug', 1, 1) torch.Size([2, 3, 96, 320])
+            # ('color_aug', 1, 2) torch.Size([2, 3, 48, 160])
+            # ('color_aug', 1, 3) torch.Size([2, 3, 24, 80])
+
 
         if self.opt.pose_model_type == "shared":
             # If we are using a shared encoder for both depth and pose (as advocated
@@ -254,8 +316,60 @@ class Trainer:
         if self.use_pose_net:
             outputs.update(self.predict_poses(inputs, features))
 
+        # TODO combine these two lines to avoid memory consumption
         self.generate_images_pred(inputs, outputs)
         losses = self.compute_losses(inputs, outputs)
+
+        # Losses
+        # loss/0 torch.Size([])
+        # loss/1 torch.Size([])
+        # loss/2 torch.Size([])
+        # loss/3 torch.Size([])
+
+        # Output
+        # ('disp', 3) torch.Size([3, 1, 24, 80])
+        # ('disp', 2) torch.Size([3, 1, 48, 160])
+        # ('disp', 1) torch.Size([3, 1, 96, 320])
+        # ('disp', 0) torch.Size([3, 1, 192, 640])
+        # ('axisangle', 0, -1) torch.Size([3, 1, 1, 3])
+        # ('translation', 0, -1) torch.Size([3, 1, 1, 3])
+        # ('cam_T_cam', 0, -1) torch.Size([3, 4, 4])
+        # ('axisangle', 0, 1) torch.Size([3, 1, 1, 3])
+        # ('translation', 0, 1) torch.Size([3, 1, 1, 3])
+        # ('cam_T_cam', 0, 1) torch.Size([3, 4, 4])
+        # ('depth', 0, 0) torch.Size([3, 1, 192, 640])
+        # ('sample', -1, 0) torch.Size([3, 192, 640, 2])
+        # ('color', -1, 0) torch.Size([3, 3, 192, 640])
+        # ('color_identity', -1, 0) torch.Size([3, 3, 192, 640])
+        # ('sample', 1, 0) torch.Size([3, 192, 640, 2])
+        # ('color', 1, 0) torch.Size([3, 3, 192, 640])
+        # ('color_identity', 1, 0) torch.Size([3, 3, 192, 640])
+        # ('depth', 0, 1) torch.Size([3, 1, 192, 640])
+        # ('sample', -1, 1) torch.Size([3, 192, 640, 2])
+        # ('color', -1, 1) torch.Size([3, 3, 192, 640])
+        # ('color_identity', -1, 1) torch.Size([3, 3, 192, 640])
+        # ('sample', 1, 1) torch.Size([3, 192, 640, 2])
+        # ('color', 1, 1) torch.Size([3, 3, 192, 640])
+        # ('color_identity', 1, 1) torch.Size([3, 3, 192, 640])
+        # ('depth', 0, 2) torch.Size([3, 1, 192, 640])
+        # ('sample', -1, 2) torch.Size([3, 192, 640, 2])
+        # ('color', -1, 2) torch.Size([3, 3, 192, 640])
+        # ('color_identity', -1, 2) torch.Size([3, 3, 192, 640])
+        # ('sample', 1, 2) torch.Size([3, 192, 640, 2])
+        # ('color', 1, 2) torch.Size([3, 3, 192, 640])
+        # ('color_identity', 1, 2) torch.Size([3, 3, 192, 640])
+        # ('depth', 0, 3) torch.Size([3, 1, 192, 640])
+        # ('sample', -1, 3) torch.Size([3, 192, 640, 2])
+        # ('color', -1, 3) torch.Size([3, 3, 192, 640])
+        # ('color_identity', -1, 3) torch.Size([3, 3, 192, 640])
+        # ('sample', 1, 3) torch.Size([3, 192, 640, 2])
+        # ('color', 1, 3) torch.Size([3, 3, 192, 640])
+        # ('color_identity', 1, 3) torch.Size([3, 3, 192, 640])
+        # identity_selection/0 torch.Size([3, 192, 640])
+        # identity_selection/1 torch.Size([3, 192, 640])
+        # identity_selection/2 torch.Size([3, 192, 640])
+        # identity_selection/3 torch.Size([3, 192, 640])
+
 
         return outputs, losses
 
@@ -321,11 +435,17 @@ class Trainer:
         """Validate the model on a single minibatch
         """
         self.set_eval()
-        try:
-            inputs = self.val_iter.next()
-        except StopIteration:
-            self.val_iter = iter(self.val_loader)
-            inputs = self.val_iter.next()
+
+        # HACK Always use the same inputs for validation
+        if self.valid_inputs is None:
+            try:
+                inputs = self.val_iter.next()
+            except StopIteration:
+                self.val_iter = iter(self.val_loader)
+                inputs = self.val_iter.next()
+            self.valid_inputs = inputs
+        else:
+            inputs = self.valid_inputs
 
         with torch.no_grad():
             outputs, losses = self.process_batch(inputs)
@@ -384,7 +504,8 @@ class Trainer:
                 outputs[("color", frame_id, scale)] = F.grid_sample(
                     inputs[("color", frame_id, source_scale)],
                     outputs[("sample", frame_id, scale)],
-                    padding_mode="border")
+                    padding_mode="border",
+                    align_corners=True) # TODO not sure, False or True in original work
 
                 if not self.opt.disable_automasking:
                     outputs[("color_identity", frame_id, scale)] = \
