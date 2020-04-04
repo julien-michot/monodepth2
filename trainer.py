@@ -496,9 +496,11 @@ class Trainer:
 
                 cam_points = self.backproject_depth[source_scale](
                     depth, inputs[("inv_K", source_scale)])
-                pix_coords = self.project_3d[source_scale](
+                pix_coords, new_depths = self.project_3d[source_scale](
                     cam_points, inputs[("K", source_scale)], T)
 
+                outputs[("cam_points", frame_id, scale)] = cam_points
+                outputs[("new_depths", frame_id, scale)] = new_depths
                 outputs[("sample", frame_id, scale)] = pix_coords
 
                 outputs[("color", frame_id, scale)] = F.grid_sample(
@@ -604,6 +606,7 @@ class Trainer:
 
             loss += to_optimise.mean()
 
+            # Disparity smoothness regularization loss
             mean_disp = disp.mean(2, True).mean(3, True)
             norm_disp = disp / (mean_disp + 1e-7)
             smooth_loss = get_smooth_loss(norm_disp, color)
