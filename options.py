@@ -130,7 +130,7 @@ class MonodepthOptions:
         self.parser.add_argument("--pose_model_type",
                                  type=str,
                                  help="normal or shared",
-                                 default="shared", # separate_resnet
+                                 default="separate_resnet",
                                  choices=["posecnn", "separate_resnet", "shared"])
 
         # SYSTEM options
