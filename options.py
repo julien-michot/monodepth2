@@ -87,7 +87,7 @@ class MonodepthOptions:
         self.parser.add_argument("--batch_size",
                                  type=int,
                                  help="batch size",
-                                 default=4) # 12, 3 with "shared"/"separate_resnet", 4 with "posecnn"
+                                 default=6) # 12, 3 with "shared"/"separate_resnet", 4 with "posecnn"
         self.parser.add_argument("--learning_rate",
                                  type=float,
                                  help="learning rate",
