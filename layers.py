@@ -159,6 +159,7 @@ class BackprojectDepth(nn.Module):
         self.pix_coords = self.pix_coords.repeat(batch_size, 1, 1)
         self.pix_coords = nn.Parameter(torch.cat([self.pix_coords, self.ones], 1),
                                        requires_grad=False)
+        # self.pix_coords = [6, 3, h*w]
 
     def forward(self, depth, inv_K):
         cam_points = torch.matmul(inv_K[:, :3, :3], self.pix_coords)

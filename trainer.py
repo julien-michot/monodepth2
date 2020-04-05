@@ -8,6 +8,7 @@ from __future__ import absolute_import, division, print_function
 
 import numpy as np
 import time
+from datetime import datetime
 
 import torch
 import torch.nn.functional as F
@@ -31,7 +32,8 @@ from IPython import embed
 class Trainer:
     def __init__(self, options):
         self.opt = options
-        self.log_path = os.path.join(self.opt.log_dir, self.opt.model_name)
+        self.log_path = os.path.join(self.opt.log_dir, self.opt.model_name, 
+                                     datetime.now().strftime("%Y%m%d-%H%M%S"))
 
         self.valid_inputs = None
 
@@ -258,40 +260,6 @@ class Trainer:
         """
         for key, ipt in inputs.items():
             inputs[key] = ipt.to(self.device)
-            #print(key, inputs[key].shape)
-            # ('K', 0) torch.Size([2, 4, 4])
-            # ('inv_K', 0) torch.Size([2, 4, 4])
-            # ('K', 1) torch.Size([2, 4, 4])
-            # ('inv_K', 1) torch.Size([2, 4, 4])
-            # ('K', 2) torch.Size([2, 4, 4])
-            # ('inv_K', 2) torch.Size([2, 4, 4])
-            # ('K', 3) torch.Size([2, 4, 4])
-            # ('inv_K', 3) torch.Size([2, 4, 4])
-            # ('color', 0, 0) torch.Size([2, 3, 192, 640])
-            # ('color', 0, 1) torch.Size([2, 3, 96, 320])
-            # ('color', 0, 2) torch.Size([2, 3, 48, 160])
-            # ('color', 0, 3) torch.Size([2, 3, 24, 80])
-            # ('color', -1, 0) torch.Size([2, 3, 192, 640])
-            # ('color', -1, 1) torch.Size([2, 3, 96, 320])
-            # ('color', -1, 2) torch.Size([2, 3, 48, 160])
-            # ('color', -1, 3) torch.Size([2, 3, 24, 80])
-            # ('color', 1, 0) torch.Size([2, 3, 192, 640])
-            # ('color', 1, 1) torch.Size([2, 3, 96, 320])
-            # ('color', 1, 2) torch.Size([2, 3, 48, 160])
-            # ('color', 1, 3) torch.Size([2, 3, 24, 80])
-            # ('color_aug', 0, 0) torch.Size([2, 3, 192, 640])
-            # ('color_aug', 0, 1) torch.Size([2, 3, 96, 320])
-            # ('color_aug', 0, 2) torch.Size([2, 3, 48, 160])
-            # ('color_aug', 0, 3) torch.Size([2, 3, 24, 80])
-            # ('color_aug', -1, 0) torch.Size([2, 3, 192, 640])
-            # ('color_aug', -1, 1) torch.Size([2, 3, 96, 320])
-            # ('color_aug', -1, 2) torch.Size([2, 3, 48, 160])
-            # ('color_aug', -1, 3) torch.Size([2, 3, 24, 80])
-            # ('color_aug', 1, 0) torch.Size([2, 3, 192, 640])
-            # ('color_aug', 1, 1) torch.Size([2, 3, 96, 320])
-            # ('color_aug', 1, 2) torch.Size([2, 3, 48, 160])
-            # ('color_aug', 1, 3) torch.Size([2, 3, 24, 80])
-
 
         if self.opt.pose_model_type == "shared":
             # If we are using a shared encoder for both depth and pose (as advocated
@@ -319,57 +287,6 @@ class Trainer:
         # TODO combine these two lines to avoid memory consumption
         self.generate_images_pred(inputs, outputs)
         losses = self.compute_losses(inputs, outputs)
-
-        # Losses
-        # loss/0 torch.Size([])
-        # loss/1 torch.Size([])
-        # loss/2 torch.Size([])
-        # loss/3 torch.Size([])
-
-        # Output
-        # ('disp', 3) torch.Size([3, 1, 24, 80])
-        # ('disp', 2) torch.Size([3, 1, 48, 160])
-        # ('disp', 1) torch.Size([3, 1, 96, 320])
-        # ('disp', 0) torch.Size([3, 1, 192, 640])
-        # ('axisangle', 0, -1) torch.Size([3, 1, 1, 3])
-        # ('translation', 0, -1) torch.Size([3, 1, 1, 3])
-        # ('cam_T_cam', 0, -1) torch.Size([3, 4, 4])
-        # ('axisangle', 0, 1) torch.Size([3, 1, 1, 3])
-        # ('translation', 0, 1) torch.Size([3, 1, 1, 3])
-        # ('cam_T_cam', 0, 1) torch.Size([3, 4, 4])
-        # ('depth', 0, 0) torch.Size([3, 1, 192, 640])
-        # ('sample', -1, 0) torch.Size([3, 192, 640, 2])
-        # ('color', -1, 0) torch.Size([3, 3, 192, 640])
-        # ('color_identity', -1, 0) torch.Size([3, 3, 192, 640])
-        # ('sample', 1, 0) torch.Size([3, 192, 640, 2])
-        # ('color', 1, 0) torch.Size([3, 3, 192, 640])
-        # ('color_identity', 1, 0) torch.Size([3, 3, 192, 640])
-        # ('depth', 0, 1) torch.Size([3, 1, 192, 640])
-        # ('sample', -1, 1) torch.Size([3, 192, 640, 2])
-        # ('color', -1, 1) torch.Size([3, 3, 192, 640])
-        # ('color_identity', -1, 1) torch.Size([3, 3, 192, 640])
-        # ('sample', 1, 1) torch.Size([3, 192, 640, 2])
-        # ('color', 1, 1) torch.Size([3, 3, 192, 640])
-        # ('color_identity', 1, 1) torch.Size([3, 3, 192, 640])
-        # ('depth', 0, 2) torch.Size([3, 1, 192, 640])
-        # ('sample', -1, 2) torch.Size([3, 192, 640, 2])
-        # ('color', -1, 2) torch.Size([3, 3, 192, 640])
-        # ('color_identity', -1, 2) torch.Size([3, 3, 192, 640])
-        # ('sample', 1, 2) torch.Size([3, 192, 640, 2])
-        # ('color', 1, 2) torch.Size([3, 3, 192, 640])
-        # ('color_identity', 1, 2) torch.Size([3, 3, 192, 640])
-        # ('depth', 0, 3) torch.Size([3, 1, 192, 640])
-        # ('sample', -1, 3) torch.Size([3, 192, 640, 2])
-        # ('color', -1, 3) torch.Size([3, 3, 192, 640])
-        # ('color_identity', -1, 3) torch.Size([3, 3, 192, 640])
-        # ('sample', 1, 3) torch.Size([3, 192, 640, 2])
-        # ('color', 1, 3) torch.Size([3, 3, 192, 640])
-        # ('color_identity', 1, 3) torch.Size([3, 3, 192, 640])
-        # identity_selection/0 torch.Size([3, 192, 640])
-        # identity_selection/1 torch.Size([3, 192, 640])
-        # identity_selection/2 torch.Size([3, 192, 640])
-        # identity_selection/3 torch.Size([3, 192, 640])
-
 
         return outputs, losses
 
@@ -499,6 +416,7 @@ class Trainer:
                 pix_coords, new_depths = self.project_3d[source_scale](
                     cam_points, inputs[("K", source_scale)], T)
 
+                outputs[("T", frame_id, scale)] = T
                 outputs[("cam_points", frame_id, scale)] = cam_points
                 outputs[("new_depths", frame_id, scale)] = new_depths
                 outputs[("sample", frame_id, scale)] = pix_coords
@@ -611,13 +529,33 @@ class Trainer:
             norm_disp = disp / (mean_disp + 1e-7)
             smooth_loss = get_smooth_loss(norm_disp, color)
 
-            loss += self.opt.disparity_smoothness * smooth_loss / (2 ** scale)
+            smooth_loss *= self.opt.disparity_smoothness / (2 ** scale)
+
+            losses["disp_smooth_loss/{}".format(scale)] = smooth_loss
+
+            loss += smooth_loss
             total_loss += loss
             losses["loss/{}".format(scale)] = loss
 
         total_loss /= self.num_scales
         losses["loss"] = total_loss
         return losses
+
+    def compute_disp_losses(self, inputs, outputs):
+        """Compute the reprojection and smoothness losses for a minibatch
+        """
+        smooth_loss = 0
+
+        for scale in self.opt.scales:
+            disp = outputs[("disp", scale)]
+            color = inputs[("color", 0, scale)]
+
+            # Disparity smoothness regularization loss
+            mean_disp = disp.mean(2, True).mean(3, True)
+            norm_disp = disp / (mean_disp + 1e-7)
+            smooth_loss += get_smooth_loss(norm_disp, color) / (2 ** scale)
+
+        return smooth_loss / self.opt.scales
 
     def compute_depth_losses(self, inputs, outputs, losses):
         """Compute depth metrics, to allow monitoring during training
@@ -668,7 +606,7 @@ class Trainer:
         for l, v in losses.items():
             writer.add_scalar("{}".format(l), v, self.step)
 
-        for j in range(min(4, self.opt.batch_size)):  # write a maxmimum of four images
+        for j in range(min(3, self.opt.batch_size)):  # write a maxmimum of four images
             for s in self.opt.scales:
                 for frame_id in self.opt.frame_ids:
                     writer.add_image(
