@@ -29,7 +29,7 @@ import networks
 from IPython import embed
 
 
-class MonoDepth:
+class MonoDepth2:
     def __init__(self, options):
         self.opt = options
 
@@ -101,8 +101,6 @@ class MonoDepth:
             self.models["predictive_mask"].to(self.device)
             self.parameters_to_train += list(self.models["predictive_mask"].parameters())
 
-        print("Training model named:\n  ", self.opt.model_name)
-        print("Models and tensorboard events files are saved to:\n  ", self.opt.log_dir)
         print("Training is using:\n  ", self.device)
 
         if not self.opt.no_ssim:
@@ -428,3 +426,4 @@ class MonoDepth:
 
         for i, metric in enumerate(self.depth_metric_names):
             losses[metric] = np.array(depth_errors[i].cpu())
+

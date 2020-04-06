@@ -26,18 +26,21 @@ from layers import *
 
 import datasets
 import networks
-from monodepth import MonoDepth
+from monodepth import MonoDepth2
 
 
 class Trainer:
-    def __init__(self, options):
+    def __init__(self, options, model=None):
         self.opt = options
         self.log_path = os.path.join(self.opt.log_dir, self.opt.model_name, 
                                      datetime.now().strftime("%Y%m%d-%H%M%S"))
 
         self.valid_inputs = None
 
-        self.model = MonoDepth(options)
+        if model:
+            self.model = model
+        else:
+            self.model = MonoDepth2(options)
 
         self.model_optimizer = optim.Adam(self.model.parameters_to_train, self.opt.learning_rate)
         self.model_lr_scheduler = optim.lr_scheduler.StepLR(
@@ -47,7 +50,7 @@ class Trainer:
             self.load_model()
 
         print("Training model named:\n  ", self.opt.model_name)
-        print("Models and tensorboard events files are saved to:\n  ", self.opt.log_dir)
+        print("Models and tensorboard events files are saved to:\n  ", self.log_path)
 
         # data
         datasets_dict = {"kitti": datasets.KITTIRAWDataset,
@@ -241,7 +244,7 @@ class Trainer:
                     writer.add_image(
                         "automask_{}/{}".format(s, j),
                         outputs["identity_selection/{}".format(s)][j][None, ...], self.step)
-
+                        
     def save_opts(self):
         """Save options to disk so we know what we ran this experiment with
         """
