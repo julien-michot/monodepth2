@@ -84,6 +84,17 @@ class ResnetEncoder(nn.Module):
         if num_layers > 34:
             self.num_ch_enc[1:] *= 4
 
+    def summary(self):
+        total_params = 0
+        total_trainable_params = 0
+        for p in self.encoder.parameters():
+            n = p.numel()
+            total_params += n
+            if p.requires_grad:
+                total_trainable_params += n
+        print('#params       ', total_params)
+        print('#Train. params', total_trainable_params)
+
     def forward(self, input_image):
         self.features = []
         x = (input_image - 0.45) / 0.225

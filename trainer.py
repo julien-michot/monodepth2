@@ -114,13 +114,6 @@ class Trainer:
             self.run_epoch()
             if (self.epoch + 1) % self.opt.save_frequency == 0:
                 self.save_model()
-                print(torch.cuda.get_device_name(device))
-                print('Memory Usage:',
-                      'Allocated:', round(
-                          torch.cuda.memory_allocated(device)/1024**3, 1), 'GB',
-                      'Cached:', round(torch.cuda.memory_cached(
-                          device)/1024**3, 1), 'GB',
-                      'Total mem:', torch.cuda.get_device_properties(device).total_memory/1024**3, 'GB')
         bar.close()
 
     def run_epoch(self):
