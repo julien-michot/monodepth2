@@ -20,12 +20,12 @@ from tqdm import tqdm
 
 import json
 
-from utils import *
-from kitti_utils import *
-from layers import *
+from .utils import *
+from .kitti_utils import *
+from .layers import *
 
-import datasets
-import networks
+from . import datasets
+from . import networks
 from IPython import embed
 
 
@@ -48,6 +48,7 @@ class MonoDepth2:
 
         assert self.opt.frame_ids[0] == 0, "frame_ids must start with 0"
 
+        self.use_disp_net = True
         self.use_pose_net = not (self.opt.use_stereo and self.opt.frame_ids == [0])
 
         if self.opt.use_stereo:
@@ -58,10 +59,11 @@ class MonoDepth2:
         self.models["encoder"].to(self.device)
         self.parameters_to_train += list(self.models["encoder"].parameters())
 
-        self.models["depth"] = networks.DepthDecoder(
-            self.models["encoder"].num_ch_enc, self.opt.scales)
-        self.models["depth"].to(self.device)
-        self.parameters_to_train += list(self.models["depth"].parameters())
+        if self.use_disp_net:
+            self.models["depth"] = networks.DepthDecoder(
+                self.models["encoder"].num_ch_enc, self.opt.scales)
+            self.models["depth"].to(self.device)
+            self.parameters_to_train += list(self.models["depth"].parameters())
 
         if self.use_pose_net:
             if self.opt.pose_model_type == "separate_resnet":
@@ -138,12 +140,14 @@ class MonoDepth2:
             features = {}
             for i, k in enumerate(self.opt.frame_ids):
                 features[k] = [f[i] for f in all_features]
+                outputs[("features", k)] = features[k]
 
             outputs = self.models["depth"](features[0])
         else:
             # Otherwise, we only feed the image with frame_id 0 through the depth encoder
             features = self.models["encoder"](inputs["color_aug", 0, 0])
             outputs = self.models["depth"](features)
+            outputs[("features", 0)] = features
 
         if self.opt.predictive_mask:
             outputs["predictive_mask"] = self.models["predictive_mask"](features)
@@ -220,7 +224,7 @@ class MonoDepth2:
         Generated images are saved into the `outputs` dictionary.
         """
         for scale in self.opt.scales:
-            disp = outputs[("disp", scale)]
+            disp = outputs[("disp", 0, scale)]
             if self.opt.v1_multiscale:
                 source_scale = scale
             else:
@@ -300,7 +304,7 @@ class MonoDepth2:
             else:
                 source_scale = 0
 
-            disp = outputs[("disp", scale)]
+            disp = outputs[("disp", 0, scale)]
             color = inputs[("color", 0, scale)]
             target = inputs[("color", 0, source_scale)]
 
@@ -327,7 +331,7 @@ class MonoDepth2:
 
             elif self.opt.predictive_mask:
                 # use the predicted mask
-                mask = outputs["predictive_mask"]["disp", scale]
+                mask = outputs["predictive_mask"]["disp", 0, scale]
                 if not self.opt.v1_multiscale:
                     mask = F.interpolate(
                         mask, [self.opt.height, self.opt.width],
@@ -387,7 +391,7 @@ class MonoDepth2:
         smooth_loss = 0
 
         for scale in self.opt.scales:
-            disp = outputs[("disp", scale)]
+            disp = outputs[("disp", 0, scale)]
             color = inputs[("color", 0, scale)]
 
             # Disparity smoothness regularization loss

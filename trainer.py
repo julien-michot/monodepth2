@@ -20,13 +20,13 @@ from tqdm import tqdm
 
 import json
 
-from utils import *
-from kitti_utils import *
-from layers import *
+from .utils import *
+from .kitti_utils import *
+from .layers import *
 
-import datasets
-import networks
-from monodepth import MonoDepth2
+from . import datasets
+from . import networks
+from .monodepth import MonoDepth2
 
 
 class Trainer:
@@ -229,18 +229,19 @@ class Trainer:
                             "color_pred_{}_{}/{}".format(frame_id, s, j),
                             outputs[("color", frame_id, s)][j].data, self.step)
 
-                writer.add_image(
-                    "disp_{}/{}".format(s, j),
-                    normalize_image(outputs[("disp", s)][j]), self.step)
+                if ("disp", 0, s) in outputs:
+                    writer.add_image(
+                        "disp_{}/{}".format(s, j),
+                        normalize_image(outputs[("disp", 0, s)][j]), self.step)
 
                 if self.opt.predictive_mask:
                     for f_idx, frame_id in enumerate(self.opt.frame_ids[1:]):
                         writer.add_image(
                             "predictive_mask_{}_{}/{}".format(frame_id, s, j),
-                            outputs["predictive_mask"][("disp", s)][j, f_idx][None, ...],
+                            outputs["predictive_mask"][("disp", 0, s)][j, f_idx][None, ...],
                             self.step)
 
-                elif not self.opt.disable_automasking:
+                elif not self.opt.disable_automasking and "identity_selection/{}".format(s) in outputs:
                     writer.add_image(
                         "automask_{}/{}".format(s, j),
                         outputs["identity_selection/{}".format(s)][j][None, ...], self.step)
